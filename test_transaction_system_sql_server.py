@@ -8,6 +8,7 @@ class DatabaseConnection:
 
     def __enter__(self):
         self.connection = pyodbc.connect(self.connection_string)
+        self.create_tables()
         return self.connection
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -102,7 +103,7 @@ class NotesManager:
     def add_note_to_transaction(self, transaction_id, note):
         with self.db_connection as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE transactions SET notes = notes + ? WHERE id=?", (f"\n{note}", transaction_id))
+            cursor.execute("UPDATE transactions SET notes = COALESCE(notes, '') + ? WHERE id=?", (f"\n{note}", transaction_id))
             conn.commit()
 
 # Tests
@@ -116,9 +117,6 @@ class TestTransactionSystem(unittest.TestCase):
         cls.notes_manager = NotesManager(cls.db_connection)
         cls.maker = User('maker_user', Role.MAKER)
         cls.checker = User('checker_user', Role.CHECKER)
-
-        cls.db_connection.__enter__().cursor().execute('''DELETE FROM transactions; DELETE FROM audit_trail;''')
-        cls.db_connection.create_tables()
 
     def setUp(self):
         # Clear previous entries
