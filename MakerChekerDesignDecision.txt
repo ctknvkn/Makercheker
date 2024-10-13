@@ -1,4 +1,4 @@
-the database design and rationale for the code provided.
+the database design and rationale for the code approach provided.
 
 Database Design
 Users Table:
