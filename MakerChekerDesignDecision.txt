@@ -1,0 +1,41 @@
+the database design and rationale for the code provided.
+
+Database Design
+Users Table:
+
+Columns: id, username, role
+Purpose: Stores user information and their roles ("Maker," "Checker," "Admin").
+Rationale: Differentiates users based on roles, enabling role-based access control.
+Transactions Table:
+
+Columns: id, transaction_type, status, notes
+Purpose: Manages financial transactions with types such as "Subscription," "Redemption," and "Switching."
+Rationale: Supports distinct transaction types and statuses for managing the approval workflow.
+AuditTrail Table:
+
+Columns: id, username, action, transaction_id
+Purpose: Keeps a record of all interactions and actions performed by users.
+Rationale: Provides transparency and traceability for all operations, satisfying the audit trail requirement.
+Rationale Behind Design
+Role-Based Access Control:
+
+Users: Assign roles to manage permissions.
+Logic: Implement checks within the application to enforce role-specific actions (e.g., only "Checker" can approve transactions).
+Transaction Management:
+
+Types: Handle multiple transaction types using a single table.
+Status: Track the status (e.g., "Pending," "Approved") to manage the workflow.
+Notes: Allow both "Maker" and "Checker" to add notes, enhancing collaboration and record-keeping.
+Audit Trail:
+
+Purpose: Record every action to maintain a history of interactions.
+Implementation: Log actions like creating, editing, approving, or rejecting transactions.
+SQL Injection Prevention:
+
+ORM Usage: Use SQLAlchemy ORM methods to handle database operations securely.
+Parameterized Queries: Prevent SQL injection by avoiding raw SQL where possible and using parameters.
+Addressing Features
+Approval Workflow: "Maker" can initiate and manage transactions, while "Checker" can approve or reject them.
+User Management: "Admin" can create and manage users, ensuring the system is flexible and secure.
+Interaction Logging: The audit trail provides a comprehensive record of all actions, supporting transparency and compliance.
+This design is structured to meet the requirements efficiently while maintaining flexibility, security, and traceability.
