@@ -1,0 +1,176 @@
+import logging
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, text
+from sqlalchemy.orm import declarative_base, sessionmaker
+import unittest
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+# Database configuration
+DATABASE_URI = (
+    'mssql+pyodbc://DSQLDMFO/DM_FrontOffice?trusted_connection=yes&driver=ODBC+Driver+17+for+SQL+Server'
+)
+
+# Create an engine and base class
+engine = create_engine(DATABASE_URI, echo=True)
+Session = sessionmaker(bind=engine)
+Base = declarative_base()
+
+# Model Definitions
+class User(Base):
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(100), nullable=False)
+    role = Column(String(50), nullable=False)
+
+class Transaction(Base):
+    __tablename__ = 'transactions'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    transaction_type = Column(String(100), nullable=False)
+    status = Column(String(50), nullable=False)
+    notes = Column(String, nullable=True)
+
+class AuditTrail(Base):
+    __tablename__ = 'audit_trail'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(100), nullable=False)
+    action = Column(String(100), nullable=False)
+    transaction_id = Column(Integer, ForeignKey('transactions.id'))
+
+# Create tables
+Base.metadata.create_all(engine)
+
+# Manager Classes
+class TransactionManager:
+    def create_transaction(self, transaction_type, status):
+        session = Session()
+        try:
+            transaction = Transaction(transaction_type=transaction_type, status=status)
+            session.add(transaction)
+            session.commit()
+            logger.debug(f"Created Transaction ID: {transaction.id}")
+            return transaction.id
+        finally:
+            session.close()
+
+    def get_transactions(self, status=None):
+        session = Session()
+        try:
+            if status:
+                transactions = session.query(Transaction).filter_by(status=status).all()
+            else:
+                transactions = session.query(Transaction).all()
+            logger.debug(f"Transactions retrieved: {transactions}")
+            return transactions
+        finally:
+            session.close()
+
+    def update_transaction_status(self, transaction_id, status):
+        session = Session()
+        try:
+            transaction = session.query(Transaction).get(transaction_id)
+            if transaction:
+                transaction.status = status
+                session.commit()
+        finally:
+            session.close()
+
+class AuditTrailManager:
+    def log_action(self, username, action, transaction_id):
+        session = Session()
+        try:
+            audit_entry = AuditTrail(username=username, action=action, transaction_id=transaction_id)
+            session.add(audit_entry)
+            session.commit()
+        finally:
+            session.close()
+
+class NotesManager:
+    def add_note_to_transaction(self, transaction_id, note):
+        session = Session()
+        try:
+            transaction = session.query(Transaction).get(transaction_id)
+            if transaction:
+                transaction.notes = (transaction.notes or '') + f"{note}\n"
+                session.commit()
+        finally:
+            session.close()
+
+# Tests
+class TestTransactionSystem(unittest.TestCase):
+    def setUp(self):
+        session = Session()
+        try:
+            # Clear previous entries
+            session.query(AuditTrail).delete()
+            session.query(Transaction).delete()
+            session.query(User).delete()
+            session.commit()
+
+            # Add users
+            session.add_all([
+                User(username='maker_user', role='Maker'),
+                User(username='checker_user', role='Checker')
+            ])
+            session.commit()
+        finally:
+            session.close()
+
+    def test_audit_trail(self):
+        manager = TransactionManager()
+        audit_trail = AuditTrailManager()
+        
+        transaction_id = manager.create_transaction('Subscription', 'Pending')
+        
+        # Verify transaction exists
+        session = Session()
+        try:
+            transaction = session.query(Transaction).get(transaction_id)
+            self.assertIsNotNone(transaction, "Transaction should exist before logging to audit trail.")
+        finally:
+            session.close()
+
+        # Log the action
+        audit_trail.log_action('maker_user', 'Created Transaction', transaction_id)
+
+        session = Session()
+        try:
+            logs = session.query(AuditTrail).filter_by(username='maker_user').all()
+            self.assertEqual(len(logs), 1)
+            self.assertEqual(logs[0].action, 'Created Transaction')
+        finally:
+            session.close()
+
+    def test_add_notes(self):
+        manager = TransactionManager()
+        notes_manager = NotesManager()
+        
+        transaction_id = manager.create_transaction('Redemption', 'Pending')
+
+        notes_manager.add_note_to_transaction(transaction_id, 'Initial note by maker')
+        notes_manager.add_note_to_transaction(transaction_id, 'Approval note by checker')
+
+        session = Session()
+        try:
+            transaction = session.query(Transaction).get(transaction_id)
+            transaction_notes = transaction.notes if transaction else None
+
+            self.assertIsNotNone(transaction_notes)
+            self.assertIn('Initial note by maker', transaction_notes)
+            self.assertIn('Approval note by checker', transaction_notes)
+        finally:
+            session.close()
+
+    def test_filter_transactions_by_user(self):
+        manager = TransactionManager()
+        manager.create_transaction('Switching', 'Pending')
+        manager.create_transaction('Subscription', 'Pending')
+
+        transactions = manager.get_transactions(status='Pending')
+        self.assertEqual(len(transactions), 2)
+        self.assertEqual(transactions[0].transaction_type, 'Switching')
+        self.assertEqual(transactions[1].transaction_type, 'Subscription')
+
+if __name__ == '__main__':
+    unittest.main()
