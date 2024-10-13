@@ -1,0 +1,33 @@
+Maker checker requirement
+
+requirement - 1. There are 3 roles in the system: “Maker,” “Checker” and “Admin”.
+
+ “Maker” can initialize an approval workflow for a given transaction, edit a pending transaction, view
+
+pending and completed transactions, or cancel a pending transaction.
+
+ “Checker” can view pending and completed transactions and approve or reject a pending transaction.
+
+ “Admin” can create a new user, edit permissions of existing users, or remove a user from the system.
+
+2. Types of supported transactions:
+
+ Subscription – buying a given type of financial instrument.
+
+ Redemption – selling a given type of financial instrument.
+
+ Switching – buying a given type of financial instrument using money from selling another type of
+
+financial instrument (in one single transaction)
+
+
+
+3. Features:
+
+ Implement an audit trail for all the interactions within the system.
+
+ Both the maker and checker should be able to add notes to a given transaction.
+
+ Both the maker and checker should be able to filter on one’s viewable transactions.
+
+ Logic in place to prevent SQL injection.
